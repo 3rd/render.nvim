@@ -23,6 +23,7 @@
 ---@field download_remote_images? boolean
 ---@field clear_in_insert_mode? boolean
 ---@field only_render_image_at_cursor? boolean
+---@field only_render_image_at_cursor_mode? "inline"|"popup"
 ---@field filetypes? string[]
 ---@field resolve_image_path? function
 
@@ -116,6 +117,7 @@
 ---@field hue fun(self: Image, hue: number)
 ---@field namespace? string
 ---@field extmark? { id: number, row: number, col: number }
+---@field ignore_global_max_size? boolean
 
 -- wish proper generics were a thing here
 ---@class IntegrationContext

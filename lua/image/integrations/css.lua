@@ -6,6 +6,7 @@ return document.create_document_integration({
     clear_in_insert_mode = false,
     download_remote_images = true,
     only_render_image_at_cursor = false,
+    only_render_image_at_cursor_mode = "inline",
     filetypes = { "css", "sass", "scss" },
   },
   query_buffer_images = function(buffer)
@@ -13,10 +14,7 @@ return document.create_document_integration({
 
     local parser = vim.treesitter.get_parser(buf, "css")
     local root = parser:parse()[1]:root()
-    local query = vim.treesitter.query.parse(
-      "css",
-      '(call_expression (function_name) @name (#eq? @name "url"))'
-    )
+    local query = vim.treesitter.query.parse("css", '(call_expression (function_name) @name (#eq? @name "url"))')
 
     local images = {}
 
@@ -27,17 +25,12 @@ return document.create_document_integration({
       if capture == "name" then
         ---@diagnostic disable-next-line: unused-local
         local start_row, start_col, end_row, end_col = node:range()
-        local line = vim.api.nvim_buf_get_lines(
-          buf,
-          end_row,
-          end_row + 1,
-          false
-        )[1]
+        local line = vim.api.nvim_buf_get_lines(buf, end_row, end_row + 1, false)[1]
 
         local path = line:sub(start_col):gsub(".*url%([\"'](.-)[\"']%).*$", "%1")
 
         -- search for path relative to webroot
-        if path:sub(1,1) == "/" then
+        if path:sub(1, 1) == "/" then
           path = vim.fs.find(path:sub(2), {
             upward = true,
             path = vim.fs.dirname(vim.api.nvim_buf_get_name(0)),
@@ -60,5 +53,5 @@ return document.create_document_integration({
     end
 
     return images
-  end
+  end,
 })

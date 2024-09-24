@@ -7,6 +7,7 @@ return document.create_document_integration({
     clear_in_insert_mode = false,
     download_remote_images = true,
     only_render_image_at_cursor = false,
+    only_render_image_at_cursor_mode = "inline",
     filetypes = { "syslang" },
   },
   query_buffer_images = function(buffer)

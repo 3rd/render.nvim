@@ -120,15 +120,19 @@ local render = function(image)
     if utils.offsets.get_border_shape(window.id).left > 0 then bounds.right = bounds.right + 1 end
 
     -- global max window width/height percentage
-    if type(state.options.max_width_window_percentage) == "number" then
-      width =
-          math.min(width, math.floor((window.width - global_offsets.x) * state.options.max_width_window_percentage / 100))
-    end
-    if type(state.options.max_height_window_percentage) == "number" then
-      height = math.min(
-        height,
-        math.floor((window.height - global_offsets.y) * state.options.max_height_window_percentage / 100)
-      )
+    if not image.ignore_global_max_size then
+      if type(state.options.max_width_window_percentage) == "number" then
+        width = math.min(
+          width,
+          math.floor((window.width - global_offsets.x) * state.options.max_width_window_percentage / 100)
+        )
+      end
+      if type(state.options.max_height_window_percentage) == "number" then
+        height = math.min(
+          height,
+          math.floor((window.height - global_offsets.y) * state.options.max_height_window_percentage / 100)
+        )
+      end
     end
   end
 
@@ -137,8 +141,10 @@ local render = function(image)
   -- )
 
   -- global max width/height
-  if type(state.options.max_width) == "number" then width = math.min(width, state.options.max_width) end
-  if type(state.options.max_height) == "number" then height = math.min(height, state.options.max_height) end
+  if not image.ignore_global_max_size then
+    if type(state.options.max_width) == "number" then width = math.min(width, state.options.max_width) end
+    if type(state.options.max_height) == "number" then height = math.min(height, state.options.max_height) end
+  end
 
   width, height = utils.math.adjust_to_aspect_ratio(term_size, image.image_width, image.image_height, width, height)
 
@@ -149,9 +155,7 @@ local render = function(image)
   local absolute_x = original_x + x_offset + window_offset_x
   local absolute_y = original_y + y_offset + window_offset_y
 
-  if image.with_virtual_padding then
-    absolute_y = absolute_y + 1
-  end
+  if image.with_virtual_padding then absolute_y = absolute_y + 1 end
 
   local prevent_rendering = false
 
@@ -276,7 +280,8 @@ local render = function(image)
 
             local conceallevel = vim.wo[image.window].conceallevel
             -- TODO: account for conceal cursor?
-            local conceal_current_line = vim.api.nvim_win_get_cursor(image.window)[1] ~= original_x and conceallevel > 0
+            local conceal_current_line = vim.api.nvim_win_get_cursor(image.window)[1] ~= original_x
+              and conceallevel > 0
             if details.conceal and details.end_col and conceal_current_line then
               -- remove width b/c this is removing space
               for i = extmark[3], details.end_col do
@@ -320,10 +325,10 @@ local render = function(image)
 
   -- clear out of bounds images
   if
-      absolute_y + height <= bounds.top
-      or absolute_y >= bounds.bottom + (vim.o.laststatus == 2 and 1 or 0)
-      or absolute_x + width <= bounds.left
-      or absolute_x >= bounds.right
+    absolute_y + height <= bounds.top
+    or absolute_y >= bounds.bottom + (vim.o.laststatus == 2 and 1 or 0)
+    or absolute_x + width <= bounds.left
+    or absolute_x >= bounds.right
   then
     if image.is_rendered then
       -- utils.debug("deleting out of bounds image", { id = image.id, x = absolute_x, y = absolute_y, width = width, height = height, bounds = bounds })
@@ -389,7 +394,12 @@ local render = function(image)
           resized_image:set_format("png")
           resized_image:scale(pixel_width, pixel_height)
 
-          local tmp_path = state.tmp_dir .. "/" .. utils.base64.encode(image.id) .. "-resized-" .. resize_hash .. ".png"
+          local tmp_path = state.tmp_dir
+            .. "/"
+            .. utils.base64.encode(image.id)
+            .. "-resized-"
+            .. resize_hash
+            .. ".png"
           resized_image:write(tmp_path)
           resized_image:destroy()
 
@@ -444,13 +454,13 @@ local render = function(image)
   end
 
   if
-      image.is_rendered
-      and image.rendered_geometry.x == rendered_geometry.x
-      and image.rendered_geometry.y == rendered_geometry.y
-      and image.rendered_geometry.width == rendered_geometry.width
-      and image.rendered_geometry.height == rendered_geometry.height
-      and image.crop_hash == initial_crop_hash
-      and image.resize_hash == initial_resize_hash
+    image.is_rendered
+    and image.rendered_geometry.x == rendered_geometry.x
+    and image.rendered_geometry.y == rendered_geometry.y
+    and image.rendered_geometry.width == rendered_geometry.width
+    and image.rendered_geometry.height == rendered_geometry.height
+    and image.crop_hash == initial_crop_hash
+    and image.resize_hash == initial_resize_hash
   then
     -- utils.debug("skipping render", image.id)
     return true

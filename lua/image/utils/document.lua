@@ -33,6 +33,8 @@ local create_document_integration = function(config)
     if config.debug then utils.log("[" .. config.name .. "]", ...) end
   end
 
+  local popup_window = nil
+
   local render = vim.schedule_wrap(
     ---@param ctx IntegrationContext
     function(ctx)
@@ -85,10 +87,57 @@ local create_document_integration = function(config)
       -- render images from queue
       for _, item in ipairs(image_queue) do
         local render_image = function(image)
-          image:render({
-            x = item.match.range.start_col,
-            y = item.match.range.start_row,
-          })
+          if ctx.options.only_render_image_at_cursor and ctx.options.only_render_image_at_cursor_mode == "popup" then
+            if popup_window ~= nil then return end
+
+            -- Create a floating window for the image
+            local term_size = utils.term.get_size()
+            local width, height = utils.math.adjust_to_aspect_ratio(
+              term_size,
+              image.image_width,
+              image.image_height,
+              term_size.screen_cols / 2,
+              0
+            )
+            local win_config = {
+              relative = "cursor",
+              row = 1,
+              col = 0,
+              width = width,
+              height = height,
+              style = "minimal",
+              border = "single",
+            }
+            local buf = vim.api.nvim_create_buf(false, true)
+            vim.bo[buf].filetype = "image_nvim_popup"
+            local win = vim.api.nvim_open_win(buf, false, win_config)
+            popup_window = win
+
+            image.ignore_global_max_size = true
+            image.window = win
+            image.buffer = buf
+            image:render({
+              x = 0,
+              y = 1,
+              width = width,
+              height = height,
+            })
+
+            -- Close the floating window when the cursor moves
+            vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+              callback = function()
+                if vim.api.nvim_win_is_valid(win) then vim.api.nvim_win_close(win, true) end
+                image:clear()
+                popup_window = nil
+              end,
+              once = true,
+            })
+          else
+            image:render({
+              x = item.match.range.start_col,
+              y = item.match.range.start_row,
+            })
+          end
         end
 
         if is_remote_url(item.match.url) then
