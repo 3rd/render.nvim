@@ -46,6 +46,8 @@ end
 
 ---@param geometry? ImageGeometry
 function Image:render(geometry)
+  if not self.global_state.enabled then return end
+
   if geometry then self.geometry = vim.tbl_deep_extend("force", self.geometry, geometry) end
 
   -- don't render if we are in the conmmand-line-window, in this case previously rendered images can

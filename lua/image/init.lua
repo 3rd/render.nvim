@@ -47,6 +47,7 @@ local state = {
   tmp_dir = vim.fn.tempname(),
   disable_decorator_handling = false,
   hijacked_win_buf_images = {},
+  enabled = true,
 }
 
 ---@type API
@@ -91,6 +92,9 @@ api.setup = function(options)
   local window_history = {}
   vim.api.nvim_set_decoration_provider(state.extmarks_namespace, {
     on_win = function(_, winid, bufnr, topline, botline)
+      -- bail if not enabled
+      if not state.enabled then return false end
+
       -- bail if decorator handling is disabled
       if state.disable_decorator_handling then return false end
 
@@ -197,6 +201,9 @@ api.setup = function(options)
   vim.api.nvim_create_autocmd({ "BufLeave", "WinClosed", "TabEnter" }, {
     group = group,
     callback = function() -- auto-clear images when windows and buffers change
+      -- bail if not enabled
+      if not state.enabled then return end
+
       vim.schedule(function()
         local images = api.get_images()
 
@@ -240,6 +247,9 @@ api.setup = function(options)
   vim.api.nvim_create_autocmd({ "WinScrolled" }, {
     group = group,
     callback = function(au)
+      -- bail if not enabled
+      if not state.enabled then return end
+
       local images = api.get_images({ window = tonumber(au.file) })
       for _, current_image in ipairs(images) do
         current_image:render()
@@ -251,6 +261,9 @@ api.setup = function(options)
   vim.api.nvim_create_autocmd({ "WinResized" }, {
     group = group,
     callback = function()
+      -- bail if not enabled
+      if not state.enabled then return end
+
       local images = api.get_images()
       for _, current_image in ipairs(images) do
         if current_image.window ~= nil then current_image:render() end
@@ -270,9 +283,11 @@ api.setup = function(options)
     vim.api.nvim_create_autocmd("FocusLost", {
       group = group,
       callback = function() -- auto-clear images when windows and buffers change
+        -- bail if not enabled
+        if not state.enabled then return end
+
         vim.schedule(function()
           -- utils.debug("FocusLost")
-
           if
             state.options.editor_only_render_when_focused
             or (utils.tmux.is_tmux and utils.tmux.get_window_id() ~= initial_tmux_window_id)
@@ -295,6 +310,9 @@ api.setup = function(options)
     vim.api.nvim_create_autocmd("FocusGained", {
       group = group,
       callback = function() -- auto-clear images when windows and buffers change
+        -- bail if not enabled
+        if not state.enabled then return end
+
         -- utils.debug("FocusGained")
 
         state.disable_decorator_handling = false
@@ -325,6 +343,9 @@ api.setup = function(options)
       group = group,
       pattern = state.options.hijack_file_patterns,
       callback = function(event)
+        -- bail if not enabled
+        if not state.enabled then return end
+
         local buf = event.buf
         local win = vim.api.nvim_get_current_win()
         local path = vim.api.nvim_buf_get_name(buf)
@@ -338,6 +359,9 @@ api.setup = function(options)
   vim.api.nvim_create_autocmd({ "BufWritePost", "TextChanged", "TextChangedI", "InsertEnter" }, {
     group = group,
     callback = function(event)
+      -- bail if not enabled
+      if not state.enabled then return end
+
       local images = api.get_images({ buffer = event.buf })
       for _, img in ipairs(images) do
         local has_moved, extmark_y, extmark_x = img:has_extmark_moved()
@@ -443,6 +467,27 @@ api.get_images = function(opts)
     end
   end
   return images
+end
+
+---@return boolean
+api.is_enabled = function()
+  return state.enabled
+end
+
+api.enable = function()
+  state.enabled = true
+  local images = api.get_images()
+  for _, current_image in ipairs(images) do
+    current_image:render()
+  end
+end
+
+api.disable = function()
+  state.enabled = false
+  local images = api.get_images()
+  for _, current_image in ipairs(images) do
+    current_image:clear(true)
+  end
 end
 
 return api

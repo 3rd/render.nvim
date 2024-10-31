@@ -7,8 +7,12 @@
 ---@field clear fun(id?: string)
 ---@field get_images fun(opts?: { window?: number, buffer?: number, namespace?: string }): Image[]
 ---@field hijack_buffer fun(path: string, window?: number, buffer?: number, options?: ImageOptions): Image|nil
+---@field is_enabled fun(): boolean
+---@field enable fun()
+---@field disable fun()
 
 ---@class State
+---@field enabled boolean
 ---@field backend Backend
 ---@field options Options
 ---@field images { [string]: Image }
