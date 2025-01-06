@@ -100,8 +100,8 @@ local create_document_integration = function(config)
       for _, item in ipairs(image_queue) do
         local render_image = function(image)
           image:render({
-            x = item.match.range.start_col,
             y = item.match.range.start_row,
+            x = item.match.range.start_col,
           })
         end
 

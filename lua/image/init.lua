@@ -259,12 +259,15 @@ api.setup = function(options)
   })
 
   -- force rerender on resize (handles VimResized as well)
-  vim.api.nvim_create_autocmd({ "WinResized" }, {
+  vim.api.nvim_create_autocmd({ "WinResized", "WinNew" }, {
     group = group,
     callback = function()
       local images = api.get_images()
       for _, current_image in ipairs(images) do
-        if current_image.window ~= nil then current_image:render() end
+        if current_image.window ~= nil then
+          current_image:clear()
+          current_image:render()
+        end
       end
     end,
   })
