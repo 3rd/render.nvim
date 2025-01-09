@@ -14,12 +14,13 @@ local create_dm_getter = function(name)
   end
 end
 
+local get_current_session = create_dm_getter("client_session")
+
 local create_dm_window_getter = function(name)
   return function()
     if not is_tmux then return nil end
-    local result = vim.fn.system(
-      "tmux list-windows -t $(tmux display-message -p '#{client_session}') -F '#{" .. name .. "}' -f '#{window_active}'"
-    )
+    local result =
+      vim.fn.system("tmux list-windows -t " .. get_current_session() .. " -F '#{" .. name .. "}' -f '#{window_active}'")
     return vim.fn.trim(result)
   end
 end
@@ -27,9 +28,8 @@ end
 local create_dm_pane_getter = function(name)
   return function()
     if not is_tmux then return nil end
-    local result = vim.fn.system(
-      "tmux list-panes -t $(tmux display-message -p '#{client_session}') -F '#{" .. name .. "}' -f '#{pane_active}'"
-    )
+    local result =
+      vim.fn.system("tmux list-panes -t " .. get_current_session() .. " -F '#{" .. name .. "}' -f '#{pane_active}'")
     return vim.fn.trim(result)
   end
 end
@@ -48,7 +48,7 @@ return {
   has_passthrough = has_passthrough,
   get_pid = create_dm_getter("pid"),
   get_socket_path = create_dm_getter("socket_path"),
-  get_current_session = create_dm_getter("client_session"),
+  get_current_session = get_current_session,
   get_window_id = create_dm_window_getter("window_id"),
   get_window_name = create_dm_window_getter("window_name"),
   get_pane_id = create_dm_pane_getter("pane_id"),
