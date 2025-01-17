@@ -7,6 +7,15 @@ local utils = require("image/utils")
 ---@type table<string, { resized: table<string>, cropped: table<string> }>
 local cache = {}
 
+-- FIXME: having multiple instances of the same image that are bounded to
+--  different sizes cause the virt_line calculations to break (i think the 
+--  height gets miss calculated)
+
+-- FIXME: horrible performance when you resize a window so that the image 
+--  "bounding box" changes
+
+-- (both of those existed before i refactored / rewrote the renderer)
+
 ---@param image Image
 local render = function(image)
   local state = image.global_state
@@ -27,19 +36,14 @@ local render = function(image)
 
   local original_x = image.geometry.x or 0
   local original_y = image.geometry.y or 0
-  local x_offset = 0
-  local y_offset = 0
   local width = image.geometry.width or 0
   local height = image.geometry.height or 0
-  local window_offset_x = 0
-  local window_offset_y = 0
   local bounds = {
     top = 0,
     right = term_size.screen_cols,
     bottom = term_size.screen_rows,
     left = 0,
   }
-  local topfill = 0
 
   -- infer missing w/h component
   local aspect_ratio = image.image_width / image.image_height
@@ -62,36 +66,48 @@ local render = function(image)
   width = math.min(width, term_size.screen_cols)
   -- height = math.min(height, term_size.screen_rows)
 
-  -- utils.debug(("(1) x: %d, y: %d, width: %d, height: %d y_offset: %d"):format(original_x, original_y, width, height, y_offset))
+  -- utils.debug(
+  --   ("(1) x: %d, y: %d, width: %d, height: %d y_offset: %d"):format(original_x, original_y, width, height, y_offset)
+  -- )
 
   if image.window ~= nil then
+    -- utils.debug(vim.fn.getwininfo(image.window)[1])
+
     -- bail if the window is invalid
     local window = utils.window.get_window(image.window, {
       with_masks = state.options.window_overlap_clear_enabled,
       ignore_masking_filetypes = state.options.window_overlap_clear_ft_ignore,
     })
     if window == nil then
-      utils.debug("invalid window", image.id)
+      -- utils.debug("invalid window", image.id)
       return false
     end
 
     -- bail if the window is not visible
-    if not window.is_visible then return false end
+    if not window.is_visible then
+      -- utils.debug("windows not visible", image.id)
+      return false
+    end
 
     -- bail if the window is overlapped
-    if state.options.window_overlap_clear_enabled and #window.masks > 0 then return false end
+    if state.options.window_overlap_clear_enabled and #window.masks > 0 then
+      -- utils.debug("overlap", image.id)
+      return false
+    end
 
     -- if the image is tied to a buffer the window must be displaying that buffer
-    if image.buffer ~= nil and window.buffer ~= image.buffer then return false end
+    if image.buffer ~= nil and window.buffer ~= image.buffer then
+      -- utils.debug("bufffer not shown", image.id)
+      return false
+    end
 
-    -- get topfill and check fold status
+    -- check if image is in fold
     local current_win = vim.api.nvim_get_current_win()
     vim.api.nvim_command("noautocmd call nvim_set_current_win(" .. image.window .. ")")
-    topfill = vim.fn.winsaveview().topfill
     local is_folded = vim.fn.foldclosed(original_y) ~= -1
     vim.api.nvim_command("noautocmd call nvim_set_current_win(" .. current_win .. ")")
 
-    -- bail if the image is inside a fold
+    -- bail if it is
     if image.buffer and is_folded then
       -- utils.debug("image is inside a fold", image.id)
       state.images[image.id] = image
@@ -101,13 +117,6 @@ local render = function(image)
 
     -- global offsets
     local global_offsets = utils.offsets.get_global_offsets(window.id)
-    x_offset = global_offsets.x - window.scroll_x
-    y_offset = global_offsets.y - window.scroll_y
-
-    -- window offsets
-    window_offset_x = window.x
-    window_offset_y = window.y
-
     -- window bounds
     bounds = window.rect
     bounds.bottom = bounds.bottom - 1
@@ -117,10 +126,17 @@ local render = function(image)
     bounds.bottom = bounds.bottom + global_offsets.y
     bounds.left = bounds.left + global_offsets.x
     bounds.right = bounds.right
-    if utils.offsets.get_border_shape(window.id).left > 0 then bounds.right = bounds.right + 1 end
 
-    local max_width_window_percentage = image.max_width_window_percentage or state.options.max_width_window_percentage
-    local max_height_window_percentage = image.max_height_window_percentage
+    if utils.offsets.get_border_shape(window.id).left > 0 then
+      bounds.right = bounds.right + 1 --
+    end
+
+    local max_width_window_percentage = --
+      image.max_width_window_percentage --
+      or state.options.max_width_window_percentage
+
+    local max_height_window_percentage = --
+      image.max_height_window_percentage --
       or state.options.max_height_window_percentage
 
     if type(max_width_window_percentage) == "number" then
@@ -132,7 +148,12 @@ local render = function(image)
       )
     end
     if type(max_height_window_percentage) == "number" then
-      height = math.min(height, math.floor((window.height - global_offsets.y) * max_height_window_percentage / 100))
+      height = math.min(
+        -- original
+        height,
+        -- max_window_percentage
+        math.floor((window.height - global_offsets.y) * max_height_window_percentage / 100)
+      )
     end
   end
 
@@ -145,178 +166,52 @@ local render = function(image)
   if type(state.options.max_height) == "number" then height = math.min(height, state.options.max_height) end
 
   width, height = utils.math.adjust_to_aspect_ratio(term_size, image.image_width, image.image_height, width, height)
-
-  if width <= 0 or height <= 0 then return false end
-
-  -- utils.debug(("(3) x: %d, y: %d, width: %d, height: %d y_offset: %d"):format(original_x, original_y, width, height, y_offset))
-
-  local absolute_x = original_x + x_offset + window_offset_x
-  local absolute_y = original_y + y_offset + window_offset_y
-
-  if image.with_virtual_padding then absolute_y = absolute_y + 1 end
-
-  local prevent_rendering = false
-
-  -- utils.debug(("(4) x: %d, y: %d, width: %d, height: %d y_offset: %d absolute_x: %d absolute_y: %d"):format( original_x, original_y, width, height, y_offset, absolute_x, absolute_y))
-
-  if image.window and image.buffer then
+  
+  local absolute_x, absolute_y
+  if image.window == nil then
+    absolute_x = original_x
+    absolute_y = original_y
+  else
     local win_info = vim.fn.getwininfo(image.window)[1]
-    if not win_info then return false end
-    local topline = win_info.topline
-    local botline = win_info.botline
+    --
+    local screen_pos = vim.fn.screenpos(
+      image.window,
+      -- put it bellow the "image source"
+      original_y + 1,
+      original_x
+    )
 
-    -- bail if out of bounds
+
     if
-      (image.with_virtual_padding and ((topline == original_y + 2 and topfill == 0) or (topline > original_y + 2)))
-      or original_y > botline
+      screen_pos.col == 0 --
+      and screen_pos.row == 0 --
     then
-      -- utils.debug("prevent rendering 1", image.id, { topline = topline, original_y = original_y })
-      prevent_rendering = true
-    end
+      -- the screen_pos is outside the window
 
-    -- folds
-    local offset = 0
-    local current_win = vim.api.nvim_get_current_win()
-    -- TODO: can this be done without switching windows?
-    vim.api.nvim_command("noautocmd call nvim_set_current_win(" .. image.window .. ")")
+      -- Calculate the difference between the top line and top pos of window
+      -- Its the best way i found to calculate the possible extmark virt_lines
+      -- that could be partially scrolled away.
+      local diff = vim.fn.screenpos(image.window, win_info.topline, 0).row - win_info.winrow
 
-    local folded_ranges = {}
-    if vim.wo.foldenable then
-      local i = topline
-      while i <= original_y do
-        local fold_start, fold_end = vim.fn.foldclosed(i), vim.fn.foldclosedend(i)
-        if fold_start ~= -1 and fold_end ~= -1 then
-          -- utils.debug(("i: %d fold start: %d, fold end: %d"):format(i, fold_start, fold_end))
-          folded_ranges[fold_start] = fold_end
-          offset = offset + (fold_end - fold_start)
-          i = fold_end + 1
-        else
-          i = i + 1
-        end
-      end
-    end
-    vim.api.nvim_command("noautocmd call nvim_set_current_win(" .. current_win .. ")")
-    -- utils.debug(("fold offset: %d"):format(offset))
-    absolute_y = absolute_y - offset
-
-    -- account for things that push line numbers around
-    if image.inline then
-      -- bail if the image is above the top of the window at least by one line
-      if topfill == 0 and original_y < topline - 1 then
-        -- utils.debug("prevent rendering 2", image.id)
-        prevent_rendering = true
+      if diff <= 0 then
+        return false -- out of bounds
       end
 
-      -- bail if the image + its height is above the top of the window + topfill
-      -- if y + height + 1 < topline + topfill then
-      --   utils.debug("prevent rendering 3", image.id, {
-      --     y = y,
-      --     height = height,
-      --     topline = topline,
-      --     topfill = topfill,
-      --   })
-      --   prevent_rendering = true
-      -- end
+      -- there is a diff which means that there are virt_lines that the user has
+      -- partially scrolled past
 
-      -- bail if the image is below the bottom of the window
-      if original_y > botline then
-        -- utils.debug("prevent rendering 4", image.id)
-        prevent_rendering = true
-      end
-
-      -- offset by topfill if the image started above the top of the window
-      if not prevent_rendering then
-        if topfill > 0 and original_y < topline then
-          --
-          absolute_y = absolute_y - (height - topfill)
-        else
-          -- offset by any pre-y virtual lines
-          local extmarks = vim.tbl_map(
-            function(mark)
-              ---@diagnostic disable-next-line: deprecated
-              local mark_id, mark_row, mark_col, mark_opts = unpack(mark)
-              local virt_height = #(mark_opts.virt_lines or {})
-              return { id = mark_id, row = mark_row, col = mark_col, height = virt_height }
-            end,
-            vim.api.nvim_buf_get_extmarks(image.buffer, -1, { topline - 1, 0 }, { original_y, 0 }, { details = true })
-          )
-
-          local extmark_y_offset = topfill
-          for _, mark in ipairs(extmarks) do
-            if image.extmark and image.extmark.id == mark.id then goto continue end
-            if mark.row > original_y then goto continue end
-            if mark.row ~= original_y and mark.id ~= image:get_extmark_id() then
-              -- check the mark is inside a fold, and skip adding the offset if it is
-              for fold_start, fold_end in pairs(folded_ranges) do
-                if mark.row >= fold_start and mark.row < fold_end then goto continue end
-              end
-              extmark_y_offset = extmark_y_offset + mark.height
-            end
-            ::continue::
-          end
-
-          -- offset x by inline virtual text
-          local extmark_x_offset = 0
-          -- track positions that are concealed by extmarks
-          local extmark_concealed = {}
-          local same_line_extmarks = vim.api.nvim_buf_get_extmarks(
-            image.buffer,
-            -1,
-            { original_y, 0 },
-            { original_y, original_x - 2 },
-            { details = true }
-          )
-          for _, extmark in ipairs(same_line_extmarks) do
-            if extmark[3] >= original_x then goto continue end
-            local details = extmark[4]
-            if details.virt_text_pos == "inline" then
-              -- add the width b/c this takes up space
-              extmark_x_offset = extmark_x_offset + utils.offsets.virt_text_width(details.virt_text)
-            end
-
-            local conceallevel = vim.wo[image.window].conceallevel
-            -- TODO: account for conceal cursor?
-            local conceal_current_line = vim.api.nvim_win_get_cursor(image.window)[1] ~= original_x and conceallevel > 0
-            if details.conceal and details.end_col and conceal_current_line then
-              -- remove width b/c this is removing space
-              for i = extmark[3], details.end_col do
-                extmark_concealed[i] = true
-              end
-              extmark_x_offset = extmark_x_offset - (details.end_col - extmark[3])
-
-              if conceallevel ~= 3 then
-                -- concealed text will be replaced with a single character
-                extmark_x_offset = extmark_x_offset + math.min(string.len(details.conceal), 1)
-              end
-            end
-            ::continue::
-          end
-
-          local sum = 0
-          for i = 0, original_x - 1 do
-            local res = vim.inspect_pos(
-              image.buffer,
-              original_y,
-              i,
-              { semantic_tokens = false, syntax = false, extmarks = false, treesitter = true }
-            )
-            for _, hl in ipairs(res.treesitter) do
-              if hl.capture == "conceal" and not extmark_concealed[i + 1] then
-                sum = sum + 1
-                break
-              end
-            end
-          end
-          extmark_x_offset = extmark_x_offset - sum
-
-          absolute_y = absolute_y + extmark_y_offset
-          absolute_x = absolute_x + extmark_x_offset
-        end
-      end
+      absolute_y = win_info.winrow - height + diff - 1 -- fking 1 indexing
+      -- Try to manually calculate the x pos of the image.
+      -- We cant use the "built in" one since its out of bounds of the window
+      -- and therefore returns two 0s
+      -- Maybe do that all the time so that wrapping doesn't affect the x pos of
+      -- the image.
+      absolute_x = win_info.wincol + win_info.textoff + original_x - 1 -- fking 1 indexing
+    else
+      absolute_x = screen_pos.col
+      absolute_y = screen_pos.row
     end
   end
-
-  if prevent_rendering then absolute_y = -math.huge end
 
   -- clear out of bounds images
   if
@@ -331,12 +226,13 @@ local render = function(image)
     else
       state.images[image.id] = image
     end
+    -- utils.debug("out of bounds")
     return false
   end
 
-  -- compute final geometry and prevent useless rerendering
+  -- compute final geometry and prevent useless re rendering
   local rendered_geometry = { x = absolute_x, y = absolute_y, width = width, height = height }
-  -- utils.debug("rendered_geometry", rendered_geometry)
+  -- utils.debug("rendered_geometry", rendered_geometry, vim.fn.getwininfo(image.window)[1])
 
   -- handle crop/resize
   local pixel_width = width * term_size.cell_width
@@ -447,7 +343,7 @@ local render = function(image)
   image.rendered_geometry = rendered_geometry
   cache[image.original_path] = image_cache
 
-  -- utils.debug("rendered", image)
+  -- utils.debug("rendered")
   return true
 end
 

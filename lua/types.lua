@@ -59,6 +59,8 @@
 ---@class ImageGeometry
 ---@field x? number
 ---@field y? number
+---@field row? number
+---@field col? number
 ---@field width? number
 ---@field height? number
 

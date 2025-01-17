@@ -79,8 +79,7 @@ function Image:render(geometry)
   local was_rendered = renderer.render(self)
 
   -- utils.debug(
-  --   ("[image] render: %s, success: %s x: %s, y: %s, width: %s, height: %s"):format(
-  --     self.id,
+  --   ("[image] success: %s x: %s, y: %s, width: %s, height: %s"):format(
   --     was_rendered,
   --     self.geometry.x,
   --     self.geometry.y,
@@ -258,7 +257,7 @@ local from_file = function(path, options, state)
 
   -- bail if not an image
   if not utils.magic.is_image(absolute_original_path) then
-    utils.debug(("image.nvim: not an image: %s"):format(absolute_original_path))
+    -- utils.debug(("image.nvim: not an image: %s"):format(absolute_original_path))
     return nil
   end
 

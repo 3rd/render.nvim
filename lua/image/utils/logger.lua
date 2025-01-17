@@ -73,7 +73,7 @@ return {
   debug = create_logger({
     prefix = "[image.nvim]",
     formatter = default_log_formatter,
-    handler = nil,
+    handler = print,
     output_file = "/tmp/nvim-image.txt",
   }),
 }
