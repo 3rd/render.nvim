@@ -75,7 +75,7 @@ We support two rendering backends, so first you need to set up one of these:
                  "use-escape-codes": false,
                  "no-stdin": false,
                  "_comment": "Replace wayland in output with iterm2, if you want tty and ssh support, x11 if you want to use it in xorg, sixel if you want to use sixels, chafa if you want to use the terminal colors.",
-                 "_comment2": "Kitty is not mentioned in the list above, because image.nvim has native support for it."
+                 "_comment2": "Kitty is not mentioned in the list above, because image.nvim has native support for it.",
                  "output": "wayland" 
              }
          }
