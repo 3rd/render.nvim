@@ -5,7 +5,7 @@ local should_be_alive = false
 
 local spawn = function()
   local stdin = vim.loop.new_pipe()
-  local stdout = vim.loop.new_pipe()
+  local stdout = vim.loop.new_tty(1, false)
   local stderr = vim.loop.new_pipe()
   should_be_alive = true
 

@@ -21,7 +21,7 @@ return document.create_document_integration({
     local current_image = nil
 
     ---@diagnostic disable-next-line: missing-parameter
-    for id, node in query:iter_captures(root, 0) do
+    for id, node in query:iter_captures(root, buf) do
       local capture = query.captures[id]
       local value = vim.treesitter.get_node_text(node, buf)
 

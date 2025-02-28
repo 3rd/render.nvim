@@ -36,7 +36,7 @@ return document.create_document_integration({
     local images = {}
 
     ---@diagnostic disable-next-line: missing-parameter
-    for id, node in query:iter_captures(root, 0) do
+    for id, node in query:iter_captures(root, buf) do
       local capture = query.captures[id]
 
       -- assume that everything after the tag + one space is the path/url and trim it

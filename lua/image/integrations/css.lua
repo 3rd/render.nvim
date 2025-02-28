@@ -22,7 +22,7 @@ return document.create_document_integration({
     local images = {}
 
     ---@diagnostic disable-next-line: missing-parameter
-    for id, node in query:iter_captures(root, 0) do
+    for id, node in query:iter_captures(root, buf) do
       local capture = query.captures[id]
 
       if capture == "name" then

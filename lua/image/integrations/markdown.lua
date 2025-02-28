@@ -29,7 +29,7 @@ return document.create_document_integration({
 
       for _, query in ipairs({ inline_query, shortcut_query }) do
         ---@diagnostic disable-next-line: missing-parameter
-        for id, node in query:iter_captures(root, 0) do
+        for id, node in query:iter_captures(root, buf) do
           local key = query.captures[id]
           local value = vim.treesitter.get_node_text(node, buf)
 

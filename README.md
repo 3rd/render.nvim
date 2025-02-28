@@ -28,6 +28,7 @@ We support two rendering backends, so first you need to set up one of these:
    - You need to use Kitty or a terminal emulator that implements [Kitty's Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
    - [WezTerm](https://github.com/wez/wezterm) implements it, but the performance is bad and it's not fully compliant.
      Most things work, but due to these issues it's not _officially supported_.
+   - [Ghostty](https://ghostty.org/) not that much information about this yet! SUBJECT TO CHANGE
 2. [Überzug++](https://github.com/jstkdng/ueberzugpp) for the `ueberzug` backend
    - Works with any terminal emulator.
    - Has much lower performance.
@@ -66,7 +67,7 @@ We support two rendering backends, so first you need to set up one of these:
    </details>
    
    - Setup the configuration
-      - Put this in `~/.config/ueberzugpp/config.json` (`~/Library/Preferences/ueberzugpp/config.json` for MacOS): <!-- 3rd change this to be correct if wrong, remove this comment if it's right! -->
+      - Put this in `~/.config/ueberzugpp/config.json` (`the same for MacOS): <!-- 3rd change this to be correct if wrong, remove this comment if it's right! -->
       
          ```  
          {
@@ -74,14 +75,14 @@ We support two rendering backends, so first you need to set up one of these:
                  "silent": true,
                  "use-escape-codes": false,
                  "no-stdin": false,
-                 "_comment": "Replace wayland in output with iterm2, if you want tty and ssh support, x11 if you want to use it in xorg, sixel if you want to use sixels, chafa if you want to use the terminal colors.",
-                 "_comment2": "Kitty is not mentioned in the list above, because image.nvim has native support for it."
+                 "_comment": "Replace wayland in output with iterm2, if you want ssh support, x11 if you want to use it in xorg, sixel if you want to use sixels, chafa if you want to use the terminal colors.",
+                 "_comment2": "Kitty is not mentioned in the list above, because image.nvim has native support for it.",
                  "output": "wayland" 
              }
          }
          ```
 	 
-      - You can remove the lines with _comment and _comment2 in them, once you are don't and have tried every available option until one or more worked!
+      - You can remove the lines with `_comment` and `_comment2`, once you have tried every available option until one or more worked!
 
 #### ImageMagick
 
@@ -222,14 +223,15 @@ After you've set up the dependencies, install the `image.nvim` plugin.
 
 ```lua
 require("lazy").setup({
-    {
-        "3rd/image.nvim",
-        opts = {}
-    },
-}, {
     rocks = {
         hererocks = true,  -- recommended if you do not have global installation of Lua 5.1.
     },
+    specs = {
+    	{
+	    "3rd/image.nvim",
+            opts = {}
+    	},
+    }
 })
 ```
 
@@ -295,7 +297,9 @@ package.path = package.path .. ";" .. vim.fn.expand("$HOME") .. "/.luarocks/shar
 {
     "3rd/image.nvim",
     build = false, -- so that it doesn't build the rock https://github.com/3rd/image.nvim/issues/91#issuecomment-2453430239
-    opts = {}
+    opts = {
+	processor = "magick_cli",
+    }
 }
 ```
 
